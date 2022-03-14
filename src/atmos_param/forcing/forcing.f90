@@ -3,7 +3,8 @@ module forcing_mod
 !-----------------------------------------------------------------------
 ! Authors: Jeremiah Sjoberg
 !          Luke Davis (lukelbd@gmail.com)
-
+!          Lina Boljka
+!
 ! This forcing module optionally allows for Polvani-Kushner setup instead
 ! of the conventional Held-Suarez default, and adds sponge layer to upper stratosphere.
 !
@@ -21,6 +22,8 @@ module forcing_mod
 !    the vertical, with negative lapse rate (probably 2K/km is reasonable),
 !    then have 4km region of constant temperature and then proceed with
 !    the ordinary standard atmosphere specification.
+! 4) Modifications to the tropopause inversion layer (various options available
+!    "sjoberg_both" used in Boljka and Birner (in prep.). Added by L. Boljka.
 !-----------------------------------------------------------------------
 
 use     constants_mod, only: seconds_per_day, kappa, cp_air, grav, pi
