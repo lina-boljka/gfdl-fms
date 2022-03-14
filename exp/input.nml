@@ -118,7 +118,6 @@
   const3          = 42.56,       ! in degrees (changed to radians within model); tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4 ; this is used for weighting function's phi0 for tropopause strength; but not for polar vortex - there we use vtx_edge above!!!;
   const4          = 188.4,    ! in hPa (ref. pressure); tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4; 
 ! const1,2,3,4 we get by fitting tanh to tropopause height of reference model run .... use curve_fit in python (note that we need to interpolate p_tp(y) to high resolution first)
-!HS (correct tp): curve_fit tanh: const1,const2,const3 (rad),const4:  [ 62.91406434   6.12407841   0.72383548 183.60303659] 41.47271808039247
 !HS (correct tp) (better fit): curve_fit tanh: const1,const2,const3,const4:  [ 63.87237504   5.77851135   0.74280024 188.38296426] 42.55931871060915
 /
 ! Topography namelist
