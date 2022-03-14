@@ -47,6 +47,8 @@ longitudes as well as latitudes.
   damping intensity changes with latitude (e.g. `exp_b=4`), and changing the latitude of
   the most intense meridional equilibrium temperature gradients (e.g. `exp_h=-2` for
   equatorward motion, `exp_h=2` for poleward motion).
+* [forcing.f90](src/atmos_param/forcing/forcing.f90) adds options for imposing stronger 
+  tropopause inversion layer (TIL) - Boljka and Birner (in prep.).  
 * [idealized_topog.f90](src/shared/topography/idealized_topog.f90) adds a new sinusoidal
   topography option, configurable with the `&idealized_topog_nml` namelist.
 
