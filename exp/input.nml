@@ -1,0 +1,243 @@
+! Main namelist, controls model integration time
+&main_nml
+  dt_atmos = 600, ! model timestep, will be filled automatically be run script
+  days     = 15, ! days to run, will be filled automatically be run script
+  hours    = 0, ! hours to run
+  minutes  = 0, ! minutes to run
+  seconds  = 0, ! seconds to run
+/
+
+! FMS namelists, controls IO settings. Must increase domains_stack_size 
+! to prevent obscure error with large files. Quote from documentation:
+! "If you increase the model resolution or are running on a small number of
+! processors, you may get the error message `MPP_UPDATE_DOMAINS user stack
+! overflow`. In this case, increase the domain stack size found in the
+! core-specific namelist files. The new stack size should be greater than or
+! equal to the number printed in the error message." 
+&fms_nml
+  domains_stack_size = 8000000, ! 8MB, and monde has 32GB RAM
+/
+&fms_io_nml
+  threading_write = 'single',
+  fileset_write = 'single',
+/
+
+! Spectral dynamics namelist, this controls basic settings like resolution,
+! vertical levels, and some differencing schemes.
+&spectral_dynamics_nml
+  damping_option            = 'resolution_dependent', ! diffusion option
+  damping_order             = 4,                      ! correspons to del8 diffusion
+  damping_coeff             = 1.15741e-4,             ! diffusion strength
+  do_mass_correction        = .true.,                 ! prevent changing mean surface pressure?
+  do_energy_correction      = .true.,                 ! prevent changing total kinetic and potential energy?
+  do_water_correction       = .false.,                ! prevent changing atmospheric water vapor? (for aquaplanet)
+  use_virtual_temperature   = .false.,                ! consider moisture in computation of geopotential (for aquaplanet)
+  vert_advect_uv            = 'second_centered',      ! vertical advection scheme for horizontal wind
+  vert_advect_t             = 'second_centered',      ! vertical advection scheme for temperature
+  longitude_origin          = 0.0,                    ! origin for output NetCDF files
+  robert_coeff              = 0.04,                   ! has to do with time-integration scheme
+  alpha_implicit            = 0.5,                    ! implicit gravity wave scheme -- 0.5 is centered, 1.0 is backward
+  lon_max                   = 128,                    ! number of longitudes (should be consistent with truncation number)
+  lat_max                   = 64,                     ! number of latitudes (should be consistent with truncation number)
+  num_levels                = 50,                     ! number of vertical levels
+  num_fourier               = 42,                     ! truncation number
+  num_spherical             = 43,                     ! generally must equal num_fourier + 1
+  fourier_inc               = 1,                      ! number of sectors for dividing up spectral model
+  triang_trunc              = .true.,                 ! triangular or rhomboidal truncation?
+  topography_option         = 'sinusoidal',            ! 'flat' for no topography, 'input' to use a NetCDf file in INPUT; 'sinusoidal' for sinusoidal mountain; 'gaussian' (?) for gaussian mountain
+  vert_coord_option         = 'pk_sigma',           ! 'input' to use &vert_coordinate_nml, 'pk_sigma' for Polvani and Kushner (2002) spacing, 'even_sigma' for evenly spaced sigma, and a few other options
+  exp_pk                    = 4,                      ! exponent used for the Polvani and Kushner vertical level calculations
+  valid_range_t             = 0.0, 800.0,           ! model fails if temperatures exceed this range
+  reference_sea_level_press = 101325.0,               ! atmospheric mass
+/
+
+! Forcing namelist, with new parameters for configuring new forcing schemes
+! Note for all damping parameters, a positive value means seconds, negative
+! means days, and zero means off (no damping). To apply damping to mean and
+! anomaly components separately, specify in the namelist e.g. ktrop = -40, 0,
+! This syntax indicates you are setting a length-2 array.
+&forcing_nml
+  no_forcing      = .false.,    ! turn off forcing altogether (same as setting each 'k' to zero)
+  locked_heating  = .false.,    ! use input file for diabatic heating
+  teq_mode        = 'hs',       ! can be hs, pk, or pkmod (i.e. my custom stuff); 
+  til_tf          = .true.,     ! false for no TIL; true if we want e.g. Sjoberg's TIL imposed on top of PK!
+  til_weight      = .false.,    ! if true then TIL is tapered off towards the pole (decreased strength, so that TIL only matters e.g. 35-80N); specify lat_tap (and other params) below!
+  damp_mode       = 'hs',       ! can be hs, pk, or pkmod (i.e. my custom stuff)
+  conserve_energy = .true.,     ! employ frictional warming
+  surf_schneider  = .false.,     ! conserve mean surface temp when delh is changed?
+  strat_vtx       = .false.,     ! (pk/pkmod) turn on and off the polar vortex
+  strat_sponge    = .true.,     ! (pk/pkmod) turn on sponge
+  strat_damp      = 'constant', ! (pkmod) 'linear': transition from kstrat at tropopause to kmeso at TOA linearly; 'constant': use kstrat everywhere in
+  t_mean          = 300.0,      ! mean surface temp
+  t_zero          = 315.0,      ! temp at equator surface
+  t_strat         = 200.0,      ! using pk stratosphere, will *offset* US standard temperature by <this> minus 216.65
+  delh            = 60.0,       ! equator-pole temp contrast
+  delv            = 10.0,       ! lapse rate scaling, probably should be left alone
+  eps             = 0.0,        ! adds seasons; delh=delh+eps in north hemisphere, delh=delh-eps in south hemisphere
+  exp_h           = 0,          ! positive number shifts baroclinic zone poleward from hs, negative equatorward
+  exp_b           = 4,          ! cosine latitude exponent for boundary layer damping equation; Shneider uses 8, Held-Suarez 4
+  sigma_b         = 0.7,        ! boundary level; below which friction and elevated thermal damping start
+  z_ozone         = 12.0,       ! (pk) level at which stratospheric warming begins for U.S. standard atmosphere (km)
+  z_kdepth        = 5.0,        ! (pkmod) depth of transition region for troposphere-to-stratosphere damping
+  lat_ref         = 0.0,        ! (pkmod) latitude at which we use exact US standard atmosphere; everywhere else, it is warped
+  p_sponge        = 0.5,        ! (pk/pkmod) level above which sponge on winds is applied (hPa)
+  p_logeval       = 200.0,      ! (pkmod) pressure at which we evaluate the log(p/p0) when inverting Held-Suarez
+  vtx_edge        = 50.0,       ! (pk/pkmod) edge of the vortex
+  vtx_width       = 20.0,       ! (pk/pkmod) width of the vortext-US standard atmosphere transition region
+  vtx_gamma       = 2.,        ! (pk/pkmod) lapse rate in polar vortex region (K/km), paper uses 2 and 4
+  ksponge         = -0.5,       ! (pk/pkmod) sponge damping rate
+  kfric           = -1.0,       ! friction damping rate
+  kbl             = -4.0,       ! maximum boundary layer thermal damping, realized at equatorial surface
+  ktrop           = -40.0,      ! troposphere damping (if hs, also applies in stratosphere)
+  kstrat          = -40.0,      ! (pk/pkmod) stratosphere damping
+  kmeso           = -4.0,       ! (pk/pkmod) damping rate at upper boundary, Holton-Mass style
+  trsink          = -4.0,       ! damping timescale for tracer, if tracers are registered
+  trflux          = 1.e-5,      ! surface flux for tracer, if tracers are registered
+  q0_tropical     = 0.0,        ! amplitude for Butler upper-troposphere tropical heating # typical value is 0.5 (K/day) ?
+  q0_vortex       = 0.0,        ! amplitude for Butler polar vortex heating # typical value is 0.5 (K/day) ?
+  q0_arctic       = 0.0,        ! amplitude for Butler Arctic surface heating # typical value is 0.5 (K/day) ?
+  q0_global       = 0.0,        ! globally uniform heating
+  q0_surface      = 0.0,        ! average strength of boundary layer heating, that decays linearly from surface to top of boundary layer
+  q0_lsp          = 0.0,        ! intensity of lsp forcing (float); if nonzero then use LSP forcing (localised heating anomaly, following Lindgren et al 2018) - Lindger et all used 6.0 K/day ! Units are K/day!
+  m_lsp           = 1.0,        ! wavenumber of lsp forcing (technically integer)
+  p0_lsp          = 800.0,      ! bottom pressure level of forcing (in hPa)
+  pt_lsp          = 200.0,      ! top pressure level of forcing (in hPa)
+  lat0_lsp        = 45.0,       ! latitudinal location of lsp forcing (midpoint)
+  slat_lsp        = 10.0,       ! sigma latitude (i.e. latitudinal extent of lsp forcing)
+  q0_lsptil       = 0.0,        ! if we use lsp setup to define TIL - use this q0 for it (the one above will generate lsp setup as defined in lindgren et al 2018; but this one can be used for other stuff as well).
+  lambda          = -60.0,        ! for Sjoberg's TIL need lambda - i.e. how strong the heating (or cooling)s at tropopause is (see Sjoberg's thesis, eqn 4.4) - typically use -30/-60 etc.
+  til             = 'sjoberg_both',  ! tells us which TIL version I want to use (e.g. 'hs' means none; other options are: 'sjoberg', 'sjobergmod', 'sjobergmod_t','sjoberg_strat','sjoberg_trop','sjoberg_both','gauss_both', 'lsp', 'lspmod', 'lspmod_t'; 'mod' for lat-dependent; '_t' for time dependent; both for troposphere and stratosphere structure; 'gauss' for gaussian approx of the tropopause; 'both' also uses tanh approx to tropopause height!; for 'both' need to specify const1-4 below!)
+  lat_tap         = 65.          ! in degrees; use 75N as 'vortex edge' to taper off TIL towards the pole (only used when til_weight is true)
+  tp_width        = 20.           ! not sure about units; sharpness/how fast TIL strengthens  around reference latitude (e.g. const3 below or lat_tap above); old vn. used tp_width=20; some others used tp_width = 3 or = 2.3.
+  exp_trop        = -13.         ! exponent in troposphere for TIL runs; for paper I used -23; 'sl' runs had -13. other runs has -33. ; try tapered version with -33. and others and see what happens.
+  p_sjoberg       = 20000. ,     ! in Pa; for Sjoberg's TIL need p_pert - i.e. where the the heating/tropopause starts (see Sjoberg's thesis, eqn 4.4)
+  dtstrat         = 21. ,        ! in K; reduce t_strat defined above by this number - i.e. list the level at which the TIL is defined.... only for sjobergmod & sjobergmod_t!!
+  const1          = 63.9,        ! not sure about units ; tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4; 
+  const2          = 5.8,         ! not sure about units ; tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4; 
+  const3          = 42.56,       ! in degrees (changed to radians within model); tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4 ; this is used for weighting function's phi0 for tropopause strength; but not for polar vortex - there we use vtx_edge above!!!;
+  const4          = 188.4,    ! in hPa (ref. pressure); tanh approx of tropopause is: p_tp = const1 * tanh (const2 * (lat - const3)) + const4; 
+! const1,2,3,4 we get by fitting tanh to tropopause height of reference model run .... use curve_fit in python (note that we need to interpolate p_tp(y) to high resolution first)
+!HS (correct tp): curve_fit tanh: const1,const2,const3 (rad),const4:  [ 62.91406434   6.12407841   0.72383548 183.60303659] 41.47271808039247
+!HS (correct tp) (better fit): curve_fit tanh: const1,const2,const3,const4:  [ 63.87237504   5.77851135   0.74280024 188.38296426] 42.55931871060915
+! ALL numbers below are wrong!!! careful!
+!PK 2km: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 43.10627581   8.44692711   0.685316   219.55347223] const3(degrees): 39.26571470050506
+!PK 4km: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 41.72537263  11.41950663   0.66815606 220.61317823] const3(degrees): 38.28252257714988
+!HS: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 58.97092244   4.57160037   0.71052782 215.53919296] const3(degrees): 40.71024553755845
+!HS_Butler: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 51.36312697   5.5653759    0.74782297 207.56929248] const3(degrees): 42.847099783644246
+!PK T63 2km Butler: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 55.36307703   7.55871135   0.73067897 221.86235153] 41.86482095502494
+!PK T85 2km Butler: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 56.20911377   6.94569492   0.70969103 219.1833934 ] 40.66230104255174
+!PK T85 2km: curve_fit tanh: const1,const2,const3 (rad),const4:  [ 55.39040474   5.74986424   0.68763472 222.93421583] 39.398567539203185
+/
+! Topography namelist
+! Change these values to impose idealized Gaussian or sinusoidal topography
+&idealized_topog_nml
+  height     = 0.0,     ! height of the Gaussian mountain
+  olon       = 0.0,     ! central coordinates
+  olat       = 0.0,
+  rlon       = 0.0,     ! half-width of ridge
+  rlat       = 0.0,
+  wlon       = 0.0,     ! half-width of tail
+  wlat       = 0.0,
+  m          = 2,       ! wavenumber of the sine wave
+  Amp2       = 0,       ! should be 0 or 1; if 1, wavenumber 2 mountain is added to wavenumber 1
+  height_sin = 2000.0,  ! sinusoidal mountain height (meters)
+  uneven_sin = .false., ! toggle uneven sinusoidal mountain
+  uneven_fac = 1.0,     ! second mountain is this much taller than first mountain
+  deltalat   = 0.0,     ! moves mountain meridionally from the default (45deg lat) position
+/
+! vertical levels - specified (above have to set vert_coord_option = 'input'; 
+! and set num_levels = 91 (e.g. for ERA-20C) even though ERA-20C has 91 boundaries: num_levels = n_boundaries-1);
+&vert_coordinate_nml
+    pk(1)=0.000000,         bk(1)=0.000000,
+    pk(2)=2.000040,         bk(2)=0.000000,
+    pk(3)=3.980832,         bk(3)=0.000000,
+    pk(4)=7.387186,         bk(4)=0.000000,
+    pk(5)=12.908319,        bk(5)=0.000000,
+    pk(6)=21.413612,        bk(6)=0.000000,
+    pk(7)=33.952858,        bk(7)=0.000000,
+    pk(8)=51.746601,        bk(8)=0.000000,
+    pk(9)=76.167656,        bk(9)=0.000000,
+    pk(10)=108.715561,      bk(10)=0.000000,
+    pk(11)=150.986023,      bk(11)=0.000000,
+    pk(12)=204.637451,      bk(12)=0.000000,
+    pk(13)=271.356506,      bk(13)=0.000000,
+    pk(14)=352.824493,      bk(14)=0.000000,
+    pk(15)=450.685791,      bk(15)=0.000000,
+    pk(16)=566.519226,      bk(16)=0.000000,
+    pk(17)=701.813354,      bk(17)=0.000000,
+    pk(18)=857.945801,      bk(18)=0.000000,
+    pk(19)=1036.166504,     bk(19)=0.000000,
+    pk(20)=1237.585449,     bk(20)=0.000000,
+    pk(21)=1463.163940,     bk(21)=0.000000,
+    pk(22)=1713.709595,     bk(22)=0.000000,
+    pk(23)=1989.874390,     bk(23)=0.000000,
+    pk(24)=2292.155518,     bk(24)=0.000000,
+    pk(25)=2620.898438,     bk(25)=0.000000,
+    pk(26)=2976.302246,     bk(26)=0.000000,
+    pk(27)=3358.425781,     bk(27)=0.000000,
+    pk(28)=3767.196045,     bk(28)=0.000000,
+    pk(29)=4202.416504,     bk(29)=0.000000,
+    pk(30)=4663.776367,     bk(30)=0.000000,
+    pk(31)=5150.859863,     bk(31)=0.000000,
+    pk(32)=5663.156250,     bk(32)=0.000000,
+    pk(33)=6199.839355,     bk(33)=0.000000,
+    pk(34)=6759.727051,     bk(34)=0.000000,
+    pk(35)=7341.469727,     bk(35)=0.000000,
+    pk(36)=7942.926270,     bk(36)=0.000014,
+    pk(37)=8564.624023,     bk(37)=0.000055,
+    pk(38)=9208.305664,     bk(38)=0.000131,
+    pk(39)=9873.560547,     bk(39)=0.000279,
+    pk(40)=10558.881836,    bk(40)=0.000548,
+    pk(41)=11262.484375,    bk(41)=0.001000,
+    pk(42)=11982.662109,    bk(42)=0.001701,
+    pk(43)=12713.897461,    bk(43)=0.002765,
+    pk(44)=13453.225586,    bk(44)=0.004267,
+    pk(45)=14192.009766,    bk(45)=0.006322,
+    pk(46)=14922.685547,    bk(46)=0.009035,
+    pk(47)=15638.053711,    bk(47)=0.012508,
+    pk(48)=16329.560547,    bk(48)=0.016860,
+    pk(49)=16990.623047,    bk(49)=0.022189,
+    pk(50)=17613.281250,    bk(50)=0.028610,
+    pk(51)=18191.029297,    bk(51)=0.036227,
+    pk(52)=18716.968750,    bk(52)=0.045146,
+    pk(53)=19184.544922,    bk(53)=0.055474,
+    pk(54)=19587.513672,    bk(54)=0.067316,
+    pk(55)=19919.796875,    bk(55)=0.080777,
+    pk(56)=20175.394531,    bk(56)=0.095964,
+    pk(57)=20348.916016,    bk(57)=0.112979,
+    pk(58)=20434.158203,    bk(58)=0.131935,
+    pk(59)=20426.218750,    bk(59)=0.152934,
+    pk(60)=20319.011719,    bk(60)=0.176091,
+    pk(61)=20107.031250,    bk(61)=0.201520,
+    pk(62)=19785.357422,    bk(62)=0.229315,
+    pk(63)=19348.775391,    bk(63)=0.259554,
+    pk(64)=18798.822266,    bk(64)=0.291993,
+    pk(65)=18141.296875,    bk(65)=0.326329,
+    pk(66)=17385.595703,    bk(66)=0.362203,
+    pk(67)=16544.585938,    bk(67)=0.399205,
+    pk(68)=15633.566406,    bk(68)=0.436906,
+    pk(69)=14665.645508,    bk(69)=0.475016,
+    pk(70)=13653.219727,    bk(70)=0.513280,
+    pk(71)=12608.383789,    bk(71)=0.551458,
+    pk(72)=11543.166992,    bk(72)=0.589317,
+    pk(73)=10471.310547,    bk(73)=0.626559,
+    pk(74)=9405.222656,     bk(74)=0.662934,
+    pk(75)=8356.252930,     bk(75)=0.698224,
+    pk(76)=7335.164551,     bk(76)=0.732224,
+    pk(77)=6353.920898,     bk(77)=0.764679,
+    pk(78)=5422.802734,     bk(78)=0.795385,
+    pk(79)=4550.215820,     bk(79)=0.824185,
+    pk(80)=3743.464355,     bk(80)=0.850950,
+    pk(81)=3010.146973,     bk(81)=0.875518,
+    pk(82)=2356.202637,     bk(82)=0.897767,
+    pk(83)=1784.854614,     bk(83)=0.917651,
+    pk(84)=1297.656128,     bk(84)=0.935157,
+    pk(85)=895.193542,      bk(85)=0.950274,
+    pk(86)=576.314148,      bk(86)=0.963007,
+    pk(87)=336.772369,      bk(87)=0.973466,
+    pk(88)=162.043427,      bk(88)=0.982238,
+    pk(89)=54.208336,       bk(89)=0.989153,
+    pk(90)=6.575628,        bk(90)=0.994204,
+    pk(91)=0.003160,        bk(91)=0.997630,
+    pk(92)=0.000000,        bk(92)=1.000000,
+/
