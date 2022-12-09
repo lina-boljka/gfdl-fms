@@ -48,7 +48,7 @@ longitudes as well as latitudes.
   the most intense meridional equilibrium temperature gradients (e.g. `exp_h=-2` for
   equatorward motion, `exp_h=2` for poleward motion).
 * [forcing.f90](src/atmos_param/forcing/forcing.f90) adds options for imposing stronger 
-  tropopause inversion layer (TIL) - Boljka and Birner (in prep.). Accordingly, changes 
+  tropopause inversion layer (TIL) - <a href="https://doi.org/10.1038/s41612-022-00319-6">Boljka and Birner (2022)</a>. Accordingly, changes 
   were made to [input.nml](exp/input.nml) as well.
 * [idealized_topog.f90](src/shared/topography/idealized_topog.f90) adds a new sinusoidal
   topography option, configurable with the `&idealized_topog_nml` namelist.
